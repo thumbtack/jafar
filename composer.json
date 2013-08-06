@@ -1,0 +1,29 @@
+{
+    "name": "thumbtack/jafar",
+    "type": "library",
+    "description": "Behavior-driven testing for PHP. Similar to Jasmine.",
+    "keywords": ["testing"],
+    "license": "MIT",
+
+    "version": "0.0.1",
+
+    "homepage": "https://github.com/thumbtack/jafar",
+    "support": {
+        "issues": "https://github.com/thumbtack/jafar/issues"
+    },
+
+    "bin": ["bin/jafar"],
+    "include-path": ["lib/"],
+
+    "require": {
+        "php": "~5.4"
+    },
+
+    "authors": [
+        {
+            "name": "Eric Naeseth",
+            "email": "eric@thumbtack.com",
+            "role": "Developer"
+        }
+    ]
+}

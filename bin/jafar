@@ -1,0 +1,151 @@
+#!/usr/bin/env php
+<?php
+
+require_once 'jafar.php';
+require_once 'jafar/discovery.php';
+require_once 'jafar/reporting.php';
+
+function printerr($text='') {
+    fprintf(STDERR, "$text\n");
+}
+
+function main() {
+    try {
+        $settings = parse_args();
+    } catch (\InvalidArgumentException $e) {
+        printerr($e->getMessage());
+        return false;
+    }
+
+    if ($settings['help']) {
+        show_help();
+    } else {
+        $filesystem = new jafar\RealFilesystem();
+        $reporter = new jafar\TerminalReporter(
+            $settings['utf_8'] ? 'utf-8' : 'ascii',
+            $settings['color']
+        );
+
+        try {
+            $test_paths = jafar\discover_test_files($filesystem, $settings['paths']);
+        } catch (InvalidArgumentException $e) {
+            printerr("error: {$e->getMessage()}");
+            return false;
+        }
+
+        foreach ($test_paths as $test_path) {
+            run_test($reporter, $test_path);
+        }
+    }
+
+    return true;
+}
+
+function run_test(jafar\Listener $listener, $test_path) {
+    $suites = jafar\get_suites_from_file($test_path);
+
+    foreach ($suites as $suite) {
+        $suite->run([], [], $listener);
+    }
+}
+
+function parse_args() {
+    $settings = get_default_settings();
+    $flags_explicitly_ended = false;
+
+    // Flags
+    for ($i = 1; $i < count($_SERVER['argv']); $i++) {
+        $arg = $_SERVER['argv'][$i];
+
+        if ($flags_explicitly_ended) {
+            $settings['paths'][] = $arg;
+        } else {
+            switch ($arg) {
+                case '-a':
+                case '--ascii':
+                    $settings['utf_8'] = false;
+                    break;
+                case '-c':
+                case '--color':
+                    $settings['color'] = true;
+                    break;
+                case '--no-color':
+                    $settings['color'] = false;
+                    break;
+                case '-u':
+                case '--utf-8':
+                    $settings['utf_8'] = true;
+                    break;
+                case '-h':
+                case '-?':
+                case '--help':
+                    $settings['help'] = true;
+                    break;
+                case '--':
+                    $flags_explicitly_ended = true;
+                    break;
+                default:
+                    if (substr($arg, 0, 1) == '-') {
+                        throw new \InvalidArgumentException("Unknown option: $arg");
+                    } else {
+                        $settings['paths'][] = $arg;
+                    }
+                    break;
+            }
+        }
+    }
+
+    return $settings;
+}
+
+function locale_is_utf_8() {
+    return (
+        stripos(getenv('LC_CTYPE') ?: '', 'utf-8') >= 0 ||
+        stripos(getenv('LANG') ?: '', 'utf-8') >= 0
+    );
+}
+
+function terminal_supports_color() {
+    if (function_exists('posix_isatty') && !posix_isatty(STDOUT)) {
+        return false;
+    }
+
+    return stripos(getenv('TERM') ?: '', 'color') >= 0;
+}
+
+function get_default_settings() {
+    return [
+        'paths' => [],
+        'utf_8' => locale_is_utf_8(),
+        'color' => terminal_supports_color(),
+        'help' => false,
+    ];
+}
+
+function show_help() {
+    $settings = get_default_settings();
+
+    $bool = function($b) {
+        return $b ? 'yes' : 'no';
+    };
+
+    printerr("usage: {$_SERVER['argv'][0]} [options] [--] [path [path ...]]");
+    printerr();
+
+    printerr("Options:");
+    printerr("  --help         Show this help");
+    printerr("  -a, --ascii    Use ASCII output (default: " . $bool(!$settings['utf_8']) . ')');
+    printerr("  -c, --color    Use colorful output (default: " . $bool($settings['color']) . ')');
+    printerr("  --no-color     Use colorless output (default: " . $bool(!$settings['color']) . ')');
+    printerr("  -u, --utf-8    Use UTF-8 output (default: " . $bool($settings['utf_8']) . ')');
+    printerr();
+    printerr("Paths:");
+    printerr('  1. Each file provided will be run as a test file.');
+    printerr('  2. Each directory provided will be searched recursively for test files:');
+    printerr("    a. If any directory's name starts with 'test' or 'spec', then every");
+    printerr('       .php file within it (recursively) will be run as a test file.');
+    printerr('    b. Otherwise, only files ending in _test.php, _spec.php, Test.php,');
+    printerr('       or Spec.php will be run as test files.');
+}
+
+exit(main() ? 0 : 1);
