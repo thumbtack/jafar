@@ -4,6 +4,8 @@ Jafar
 Jafar is a behavior testing toolkit for PHP, like [Jasmine][jasmine] is for
 JavaScript.
 
+[jasmine]: http://jasmine.github.io/
+
 Usage
 -----
 
